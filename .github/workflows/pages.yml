@@ -78,11 +78,12 @@ jobs:
         timeout-minutes: 120
         run: |
           ulimit -n 65536
-          catalog_visualizer "http://cvmfs-stratum-one.cern.ch/cvmfs/${{ matrix.repo }}" \
+          # Use Cloudflare CDN endpoint (FNAL, Illinois) for faster US downloads
+          catalog_visualizer "http://s1fnal-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 1000GB \
             --no-browser \
-            -j 8
+            -j 16
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
