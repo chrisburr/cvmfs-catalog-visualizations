@@ -52,11 +52,9 @@ jobs:
           - na62.cern.ch
           - opal.cern.ch
           - patatrack.cern.ch
-          - projects.cern.ch
           - sft.cern.ch
           - sft-nightlies.cern.ch
           - ship.cern.ch
-          - singularity.opensciencegrid.org
           - sndlhc.cern.ch
           - sw.hsf.org
           - sw-nightlies.hsf.org
@@ -79,9 +77,9 @@ jobs:
         continue-on-error: true
         timeout-minutes: 120
         run: |
+          ulimit -n 65536
           catalog_visualizer "http://cvmfs-stratum-one.cern.ch/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
-            --stop-threshold 2MB \
             --no-browser \
             -j 8
 
@@ -141,8 +139,8 @@ jobs:
                       dphep.cern.ch faser.cern.ch fcc.cern.ch geant4.cern.ch grid.cern.ch \
                       ilc.desy.de lhcb.cern.ch lhcb-condb.cern.ch lhcbdev.cern.ch \
                       na61.cern.ch na62.cern.ch opal.cern.ch patatrack.cern.ch \
-                      projects.cern.ch sft.cern.ch sft-nightlies.cern.ch ship.cern.ch \
-                      singularity.opensciencegrid.org sndlhc.cern.ch sw.hsf.org \
+                      sft.cern.ch sft-nightlies.cern.ch ship.cern.ch \
+                      sndlhc.cern.ch sw.hsf.org \
                       sw-nightlies.hsf.org unpacked.cern.ch; do
             if [ -f "site/${repo}.html" ]; then
               echo "    <li><a href=\"${repo}.html\">${repo}</a></li>" >> site/index.html
