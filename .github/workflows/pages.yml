@@ -83,8 +83,7 @@ jobs:
         timeout-minutes: 120
         run: |
           ulimit -n 65536
-          # Use direct CERN stratum
-          catalog_visualizer "http://cvmfs-stratum-one.cern.ch/cvmfs/${{ matrix.repo }}" \
+          catalog_visualizer "http://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 1000GB \
             --no-browser \
