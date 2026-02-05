@@ -88,7 +88,6 @@ jobs:
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 1000GB \
             --no-browser \
-            --no-cache \
             -j 16
 
       - name: Upload artifact
