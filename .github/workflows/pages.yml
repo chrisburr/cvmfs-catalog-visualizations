@@ -80,7 +80,7 @@ jobs:
 
       - name: Generate visualization
         continue-on-error: true
-        timeout-minutes: 120
+        timeout-minutes: 360
         run: |
           ulimit -n 65536
           catalog_visualizer "http://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
