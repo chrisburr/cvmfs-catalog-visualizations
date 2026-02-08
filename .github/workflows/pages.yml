@@ -3,7 +3,7 @@ name: Generate CVMFS Catalog Visualizations
 on:
   workflow_dispatch:  # Manual trigger
   schedule:
-    - cron: '0 2 * * 0'  # Weekly on Sunday at 2am UTC
+    - cron: '0 */6 * * *'  # Every 6 hours
 
 permissions:
   contents: write
@@ -92,6 +92,7 @@ jobs:
             --no-cache \
             --no-browser \
             -j 16 \
+            --max-catalogs 10000 \
             --previous-tree "tree-cache/${{ matrix.repo }}.json.zst" \
             --save-tree "tree-cache/${{ matrix.repo }}.json.zst"
 
