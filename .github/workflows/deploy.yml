@@ -20,14 +20,33 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Restore previous site
+        uses: actions/cache/restore@v4
         with:
           path: site
+          key: site-never-matches
+          restore-keys: |
+            site-
+
+      - name: Prepare site directory
+        run: mkdir -p site
+
+      - name: Download new artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: new-results
           pattern: viz-*
           merge-multiple: true
           github-token: ${{ github.token }}
           run-id: ${{ github.event.client_payload.run_id }}
+        continue-on-error: true
+
+      - name: Overlay new results
+        run: |
+          if [ -d new-results ]; then
+            cp -f new-results/*.html site/ 2>/dev/null || true
+            cp -f new-results/*.timestamp site/ 2>/dev/null || true
+          fi
 
       - name: Generate index page
         run: |
@@ -73,7 +92,7 @@ jobs:
               fi
               echo "    <li><a href=\"${repo}.html\">${repo}</a><time datetime=\"${ts}\" title=\"${ts}\"></time></li>" >> site/index.html
             else
-              echo "    <li><span class=\"missing\">${repo}</span><span class=\"status\">pending</span></li>" >> site/index.html
+              echo "    <li><span class=\"missing\">${repo}</span><span class=\"status\">not yet generated</span></li>" >> site/index.html
             fi
           done
 
@@ -108,8 +127,14 @@ jobs:
           </html>
           HTMLEOF
 
-          # Clean up timestamp files so they aren't served
-          rm -f site/*.timestamp
+      - name: Save site cache
+        uses: actions/cache/save@v4
+        with:
+          path: site
+          key: site-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Remove timestamp files before deploy
+        run: rm -f site/*.timestamp
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
