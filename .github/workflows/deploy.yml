@@ -60,12 +60,13 @@ jobs:
               h1 { color: #e94560; }
               p { color: #aaa; }
               ul { list-style: none; padding: 0; }
-              li { padding: 0.5rem 0; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+              li { padding: 0.5rem 0; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 0.5rem; }
               a { color: #4da6ff; text-decoration: none; }
               a:hover { text-decoration: underline; }
               .missing { color: #666; }
-              time { color: #888; font-size: 0.85rem; }
-              .status { color: #666; font-size: 0.85rem; }
+              time { color: #888; font-size: 0.85rem; margin-left: auto; }
+              .status { color: #666; font-size: 0.85rem; margin-left: auto; }
+              .incomplete { color: #eab308; font-size: 0.8rem; }
             </style>
           </head>
           <body>
@@ -90,7 +91,21 @@ jobs:
               if [ -f "site/${repo}.timestamp" ]; then
                 ts=$(cat "site/${repo}.timestamp")
               fi
-              echo "    <li><a href=\"${repo}.html\">${repo}</a><time datetime=\"${ts}\" title=\"${ts}\"></time></li>" >> site/index.html
+              # Detect incomplete exploration
+              badge=""
+              if grep -q '"is_large":true' "site/${repo}.html" 2>/dev/null; then
+                badge="incomplete"
+              fi
+              max=$(grep -oP 'maxCatalogs = \K\d+' "site/${repo}.html" 2>/dev/null || echo 0)
+              dl=$(grep -oP 'catalogsDownloaded = \K\d+' "site/${repo}.html" 2>/dev/null || echo 0)
+              if [ "$max" -gt 0 ] 2>/dev/null && [ "$dl" -ge "$max" ] 2>/dev/null; then
+                badge="incomplete"
+              fi
+              extra=""
+              if [ -n "$badge" ]; then
+                extra=" <span class=\"incomplete\">(incomplete)</span>"
+              fi
+              echo "    <li><a href=\"${repo}.html\">${repo}</a>${extra}<time datetime=\"${ts}\" title=\"${ts}\"></time></li>" >> site/index.html
             else
               echo "    <li><span class=\"missing\">${repo}</span><span class=\"status\">not yet generated</span></li>" >> site/index.html
             fi
