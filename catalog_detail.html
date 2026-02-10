@@ -391,7 +391,7 @@ header .catalog-hash {
 
         <div class="path-bar">
             <span class="label">Selected:</span>
-            <span class="path" id="info-path">/</span>
+            <span class="path" id="info-path" style="cursor: pointer;" title="Click to copy">/</span>
         </div>
 
         <div class="container">
@@ -952,8 +952,8 @@ header .catalog-hash {
                 lctx.fillRect(i, 0, 1, legendCanvas.height);
             }
 
-            var labels = [50, 1000, 10000, 100000, 500000];
-            var labelText = ['50', '1k', '10k', '100k', '500k'];
+            var labels = [50, 500, 5000, 50000, 500000];
+            var labelText = ['50', '500', '5k', '50k', '500k'];
             var container = document.getElementById('legend-labels');
             for (var i = 0; i < labels.length; i++) {
                 var pct = (Math.log(labels[i]) - logMin) / (logMax - logMin) * 100;
@@ -968,6 +968,19 @@ header .catalog-hash {
         document.getElementById('stats-info').textContent =
             'Catalog entries: ' + formatNumber(root.data.recursiveTotal) +
             ' | Directories: ' + formatNumber(root.descendants().length);
+
+        // Click to copy path
+        document.getElementById('info-path').addEventListener('click', function() {
+            var path = this.textContent;
+            if (path) {
+                navigator.clipboard.writeText(path).then(function() {
+                    var el = document.getElementById('info-path');
+                    var original = el.textContent;
+                    el.textContent = 'Copied!';
+                    setTimeout(function() { el.textContent = original; }, 1000);
+                });
+            }
+        });
 
         // Initial render
         updateInfo(root);
