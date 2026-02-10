@@ -547,7 +547,7 @@ function initVisualization(config) {
         }
     });
 
-    function clicked(p) {
+    function navigateTo(p) {
         root.each(d => {
             d.current = {
                 x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
@@ -561,14 +561,17 @@ function initVisualization(config) {
         hoveredNode = null;
         updateInfo(p);
         updateLargestCatalogs(p);
+        draw();
+    }
+
+    function clicked(p) {
+        navigateTo(p);
 
         if (config.updateUrl !== false) {
             const params = new URLSearchParams(location.search);
             p === root ? params.delete('path') : params.set('path', p.data.path);
-            history.replaceState(null, '', '?' + params);
+            history.pushState(null, '', '?' + params);
         }
-
-        draw();
     }
 
     // Update largest catalogs list for a given hierarchy node
@@ -645,7 +648,7 @@ function initVisualization(config) {
         clickPath: function(path) {
             const targetNode = root.descendants().find(d => d.data.path === path);
             if (targetNode) {
-                clicked(targetNode);
+                navigateTo(targetNode);
             }
         }
     };
@@ -1012,6 +1015,7 @@ _VIEWER_JS = """\
 (function() {
     const dataCache = {};
     let currentViz = null;
+    let currentRepo = null;
 
     function timeAgo(date) {
         const seconds = Math.floor((new Date() - date) / 1000);
@@ -1067,6 +1071,8 @@ _VIEWER_JS = """\
         document.getElementById('repo-listing').style.display = '';
         document.getElementById('viz-container').classList.remove('visible');
         document.title = 'CVMFS Catalog Visualizations';
+        currentRepo = null;
+        currentViz = null;
     }
 
     function showViz() {
@@ -1140,6 +1146,7 @@ _VIEWER_JS = """\
         }
 
         showViz();
+        currentRepo = envelope.repo_name;
         document.title = 'CVMFS Catalog Visualizer - ' + envelope.repo_name;
 
         // Reset info panel
@@ -1254,6 +1261,7 @@ _VIEWER_JS = """\
                 dataCache[name] = data;
                 history.pushState({ repo: name, local: true }, '', '?repo=' + encodeURIComponent(name));
                 showViz();
+                currentRepo = name;
                 document.title = 'CVMFS Catalog Visualizer - ' + data.repo_name;
                 requestAnimationFrame(function() {
                     currentViz = initVisualization({
@@ -1294,6 +1302,16 @@ _VIEWER_JS = """\
 
     // History navigation
     window.addEventListener('popstate', function() {
+        const params = new URLSearchParams(location.search);
+        const repo = params.get('repo');
+        const path = params.get('path');
+
+        // Same repo: just navigate within the sunburst
+        if (repo && repo === currentRepo && currentViz) {
+            currentViz.clickPath(path || '/');
+            return;
+        }
+
         route();
     });
 
