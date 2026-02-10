@@ -565,7 +565,7 @@ function initVisualization(config) {
     // Update largest catalogs list for a given hierarchy node
     function updateLargestCatalogs(hierarchyNode) {
         const catalogs = hierarchyNode.descendants()
-            .filter(d => !d.data.is_virtual && d.data.size > 0)
+            .filter(d => d !== hierarchyNode && !d.data.is_virtual && d.data.size > 0)
             .map(d => ({ path: d.data.path, size: d.data.size }))
             .sort((a, b) => b.size - a.size)
             .slice(0, 10);
@@ -574,7 +574,7 @@ function initVisualization(config) {
         const listHtml = catalogs.map(c => {
             let displayPath = c.path;
             if (prefix !== '/' && displayPath.startsWith(prefix + '/')) {
-                displayPath = displayPath.slice(prefix.length);
+                displayPath = displayPath.slice(prefix.length + 1);
             }
             return '<div class="catalog-item" data-path="' + c.path + '" title="' + c.path + '">' +
                 '<span class="catalog-size" style="color: ' + sizeColor(c.size) + '">' + formatBytes(c.size) + ':</span>' +

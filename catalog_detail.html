@@ -852,7 +852,7 @@ header .catalog-hash {
 
         function updateLargestDirs(hierarchyNode) {
             var dirs = hierarchyNode.descendants()
-                .filter(function(d) { return d.data.recursiveTotal > 0; })
+                .filter(function(d) { return d !== hierarchyNode && d.data.recursiveTotal > 0; })
                 .map(function(d) { return { path: d.data.path, count: d.data.recursiveTotal }; })
                 .sort(function(a, b) { return b.count - a.count; })
                 .slice(0, 10);
@@ -861,7 +861,7 @@ header .catalog-hash {
             var html = dirs.map(function(c) {
                 var displayPath = c.path;
                 if (prefix !== '/' && displayPath.indexOf(prefix + '/') === 0) {
-                    displayPath = displayPath.slice(prefix.length);
+                    displayPath = displayPath.slice(prefix.length + 1);
                 }
                 return '<div class="dir-item" data-path="' + c.path + '" title="' + c.path + '">' +
                     '<span class="dir-count" style="color: ' + entryCountColor(c.count) + '">' + formatNumber(c.count) + ':</span>' +
