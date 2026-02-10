@@ -343,6 +343,7 @@ Examples:
     if args.viewer:
         html = generate_viewer_html()
         output_path = args.output or Path("viewer.html")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(html)
         if not args.quiet:
             print(f"Viewer written to: {output_path}", file=sys.stderr)
