@@ -64,6 +64,9 @@ jobs:
       - name: Generate viewer page
         run: pixi run python generate.py --viewer --output site/index.html -q
 
+      - name: Copy catalog detail page
+        run: cp catalog_detail.html site/
+
       - name: Generate repos.json manifest
         run: pixi run generate-repos-json site/data/
 

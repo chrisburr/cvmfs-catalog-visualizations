@@ -510,6 +510,16 @@ function initVisualization(config) {
         } else {
             badge.innerHTML = "";
         }
+
+        const detailRow = document.getElementById("detail-link-row");
+        const detailLink = document.getElementById("detail-link");
+        if (detailRow && detailLink && d.data.hash && !d.data.is_virtual && config.repoUrl) {
+            detailLink.href = "catalog_detail.html?repo=" + encodeURIComponent(config.repoUrl) +
+                "&hash=" + encodeURIComponent(d.data.hash);
+            detailRow.style.display = "";
+        } else if (detailRow) {
+            detailRow.style.display = "none";
+        }
     }
 
     canvas.addEventListener('mousemove', function(event) {
@@ -724,6 +734,10 @@ _VIZ_BODY_TEMPLATE = """\
                     <span class="info-value hash" id="info-hash" title="Click to copy">-</span>
                 </div>
                 <div id="large-badge"></div>
+                <div id="detail-link-row" style="margin-top: 0.5rem; display: none;">
+                    <a id="detail-link" href="#" target="_blank" rel="noopener"
+                       style="color: #4da6ff; font-size: 0.8rem; text-decoration: none;">View directory detail</a>
+                </div>
             </div>
 
             <h2>Largest Catalogs</h2>

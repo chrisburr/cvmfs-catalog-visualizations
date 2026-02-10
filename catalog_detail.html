@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVMFS Catalog Detail</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    background: #16213e;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #0f3460;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+header .catalog-hash {
+    color: #e94560;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.chart-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    max-height: calc(100vh - 60px);
+    position: relative;
+}
+
+#chart {
+    max-width: min(80vh, 800px);
+    max-height: 80vh;
+}
+
+.sidebar {
+    width: 350px;
+    background: #16213e;
+    padding: 1.5rem;
+    overflow-y: auto;
+    border-left: 1px solid #0f3460;
+}
+
+.sidebar h2 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    color: #e94560;
+}
+
+.info-panel {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #0f3460;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.info-value {
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.legend {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(22, 33, 62, 0.9);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #0f3460;
+}
+
+.legend-title {
+    font-size: 0.75rem;
+    color: #e94560;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.35rem;
+    font-size: 0.75rem;
+}
+
+.legend-item:last-child {
+    margin-bottom: 0;
+}
+
+.legend-labels {
+    position: relative;
+    height: 1rem;
+    font-size: 0.7rem;
+    margin-top: 0.25rem;
+    color: #aaa;
+}
+.legend-labels span {
+    position: absolute;
+    transform: translateX(-50%);
+}
+
+.path-bar {
+    background: #16213e;
+    padding: 0.75rem 2rem;
+    border-bottom: 1px solid #0f3460;
+    font-family: monospace;
+    font-size: 0.9rem;
+    word-break: break-all;
+}
+.path-bar .label {
+    color: #888;
+    margin-right: 0.5rem;
+}
+.path-bar .path {
+    color: #e94560;
+}
+
+.dir-item {
+    padding: 0.3rem 0;
+    border-bottom: 1px solid #0f3460;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    cursor: pointer;
+}
+.dir-item:hover {
+    background: #0f3460;
+}
+.dir-item:last-child {
+    border-bottom: none;
+}
+.dir-count {
+    color: #e94560;
+    flex-shrink: 0;
+}
+.dir-path {
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.instructions {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 1rem;
+    line-height: 1.5;
+}
+
+.stats {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 1rem;
+}
+
+/* Input form */
+.input-form {
+    max-width: 600px;
+    margin: 4rem auto;
+    padding: 0 1rem;
+}
+.input-form h1 {
+    color: #e94560;
+    margin-bottom: 0.5rem;
+}
+.input-form p {
+    color: #aaa;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+.input-form label {
+    display: block;
+    color: #888;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+.input-form input[type="text"] {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    color: #eee;
+    font-family: monospace;
+    font-size: 0.9rem;
+    outline: none;
+    margin-bottom: 1rem;
+}
+.input-form input[type="text"]:focus {
+    border-color: #e94560;
+}
+.input-form button {
+    padding: 0.6rem 1.5rem;
+    background: #e94560;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+.input-form button:hover {
+    background: #d63851;
+}
+.input-form .error {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    display: none;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.loading-overlay.hidden {
+    display: none;
+}
+.loading-text {
+    color: #e94560;
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+.progress-bar-container {
+    width: 300px;
+    height: 6px;
+    background: #0f3460;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.progress-bar {
+    height: 100%;
+    background: #e94560;
+    border-radius: 3px;
+    transition: width 0.15s;
+    width: 0%;
+}
+.progress-bar.indeterminate {
+    width: 30%;
+    animation: indeterminate 1.5s infinite ease-in-out;
+}
+@keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+.progress-size {
+    color: #888;
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+}
+
+#viz-container {
+    display: none;
+}
+#viz-container.visible {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.1rem;
+    }
+
+    .path-bar {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    .container {
+        flex-direction: column;
+        overflow: auto;
+    }
+
+    .chart-container {
+        max-height: none;
+        padding: 0.5rem;
+        aspect-ratio: 1;
+        max-width: 100vw;
+    }
+
+    .legend {
+        font-size: 0.65rem;
+        padding: 0.5rem 0.75rem;
+        bottom: 0.5rem;
+        right: 0.5rem;
+    }
+
+    .legend-title {
+        font-size: 0.65rem;
+    }
+
+    .legend-item {
+        font-size: 0.65rem;
+    }
+
+    .legend-color {
+        width: 10px;
+        height: 10px;
+    }
+
+    .sidebar {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid #0f3460;
+    }
+}
+    </style>
+</head>
+<body>
+    <!-- Input form (shown when no URL params) -->
+    <div id="input-form" class="input-form">
+        <h1>CVMFS Catalog Detail Viewer</h1>
+        <p>Explore the directory structure inside a single CVMFS catalog as a sunburst chart. Directories are sized by entry count and colored by how many entries they contain directly.</p>
+        <label for="repo-url">Repository URL</label>
+        <input type="text" id="repo-url" placeholder="http://s1cern-cvmfs.openhtc.io/cvmfs/lhcb.cern.ch">
+        <label for="catalog-hash">Catalog hash</label>
+        <input type="text" id="catalog-hash" placeholder="2715c65209f4f276699af1a60a5e5f401e2e25d5">
+        <button id="load-btn">Load Catalog</button>
+        <div class="error" id="form-error"></div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loading-overlay">
+        <div class="loading-text" id="loading-text">Loading...</div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-size" id="progress-size"></div>
+    </div>
+
+    <!-- Visualization container (hidden until data loads) -->
+    <div id="viz-container">
+        <header>
+            <h1>Catalog Detail — <span class="catalog-hash" id="catalog-hash-display"></span></h1>
+        </header>
+
+        <div class="path-bar">
+            <span class="label">Selected:</span>
+            <span class="path" id="info-path">/</span>
+        </div>
+
+        <div class="container">
+            <div class="chart-container">
+                <canvas id="chart"></canvas>
+                <div class="legend">
+                    <div class="legend-title">Entry Count</div>
+                    <canvas id="legend-gradient" width="160" height="12" style="width: 160px; height: 12px; border-radius: 3px;"></canvas>
+                    <div class="legend-labels" id="legend-labels"></div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <h2>Selected Directory</h2>
+                <div class="info-panel" id="info-panel">
+                    <div class="info-row">
+                        <span class="info-label">Files</span>
+                        <span class="info-value" id="info-files">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Directories</span>
+                        <span class="info-value" id="info-dirs">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Symlinks</span>
+                        <span class="info-value" id="info-symlinks">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Total (recursive)</span>
+                        <span class="info-value" id="info-total">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Size (recursive)</span>
+                        <span class="info-value" id="info-size">-</span>
+                    </div>
+                </div>
+
+                <h2>Largest Directories</h2>
+                <div class="info-panel" id="largest-dirs">
+                </div>
+
+                <div class="instructions">
+                    <strong>Instructions:</strong><br>
+                    • Click on a segment to zoom in<br>
+                    • Click center to return to top level<br>
+                    • Hover for details
+                </div>
+
+                <div class="stats" id="stats-info"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+(function() {
+    // --- Utility functions ---
+    function formatNumber(n) {
+        return n.toLocaleString();
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return "0 B";
+        const k = 1024;
+        const sizes = ["B", "KB", "MB", "GB", "TB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    }
+
+    // Continuous log color scale: green (few) → yellow → red (many)
+    var colorScale = d3.scaleSequentialLog(function(t) { return d3.interpolateRdYlGn(1 - t); })
+        .domain([50, 500000]);
+
+    function entryCountColor(count) {
+        return colorScale(Math.max(50, count));
+    }
+
+    // --- Loading overlay ---
+    function showLoading(text) {
+        document.getElementById('loading-text').textContent = text || 'Loading...';
+        document.getElementById('progress-bar').style.width = '0%';
+        document.getElementById('progress-bar').classList.remove('indeterminate');
+        document.getElementById('progress-size').textContent = '';
+        document.getElementById('loading-overlay').classList.remove('hidden');
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function updateProgress(loaded, total) {
+        var bar = document.getElementById('progress-bar');
+        var sizeEl = document.getElementById('progress-size');
+        if (total > 0) {
+            bar.classList.remove('indeterminate');
+            bar.style.width = Math.round((loaded / total) * 100) + '%';
+            sizeEl.textContent = formatBytes(loaded) + ' / ' + formatBytes(total);
+        } else {
+            bar.classList.add('indeterminate');
+            sizeEl.textContent = formatBytes(loaded);
+        }
+    }
+
+    function setIndeterminate(text) {
+        document.getElementById('loading-text').textContent = text;
+        document.getElementById('progress-bar').classList.add('indeterminate');
+        document.getElementById('progress-size').textContent = '';
+    }
+
+    // --- Fetch + decompress catalog ---
+    async function fetchCatalog(repoUrl, hash) {
+        var dataPath = hash.slice(0, 2) + '/' + hash.slice(2) + 'C';
+        var url = repoUrl.replace(/\/+$/, '') + '/data/' + dataPath;
+
+        showLoading('Fetching catalog...');
+        var response;
+        try {
+            response = await fetch(url);
+        } catch (e) {
+            var origin = new URL(url).origin;
+            var errorEl = document.getElementById('form-error');
+            errorEl.innerHTML =
+                'Failed to fetch catalog. This is likely a CORS issue — the server at <strong>' +
+                origin + '</strong> does not allow cross-origin requests from the browser.<br><br>' +
+                'Workarounds:<br>' +
+                '• Use a CVMFS server that supports CORS headers<br>' +
+                '• Run a local CORS proxy (e.g. cors-anywhere)<br>' +
+                '• Serve this page from the same origin as the repository<br><br>' +
+                'See <a href="https://github.com/openhtc/openhtc.github.io/issues/2" ' +
+                'target="_blank" rel="noopener" style="color: #e94560;">openhtc/openhtc.github.io#2</a> ' +
+                'for the request to enable CORS on openhtc.io mirrors.';
+            errorEl.style.display = 'block';
+            hideLoading();
+            document.getElementById('input-form').style.display = '';
+            return null;
+        }
+        if (!response.ok) throw new Error('Fetch failed: HTTP ' + response.status + ' for ' + url);
+
+        var contentLength = response.headers.get('Content-Length');
+        var total = contentLength ? parseInt(contentLength, 10) : 0;
+
+        if (!response.body) {
+            var buf = await response.arrayBuffer();
+            return new Uint8Array(buf);
+        }
+
+        var reader = response.body.getReader();
+        var chunks = [];
+        var loaded = 0;
+
+        while (true) {
+            var result = await reader.read();
+            if (result.done) break;
+            chunks.push(result.value);
+            loaded += result.value.length;
+            updateProgress(loaded, total);
+        }
+
+        var compressed = new Uint8Array(loaded);
+        var offset = 0;
+        for (var i = 0; i < chunks.length; i++) {
+            compressed.set(chunks[i], offset);
+            offset += chunks[i].length;
+        }
+
+        // Decompress with DecompressionStream('deflate')
+        setIndeterminate('Decompressing...');
+        var blob = new Blob([compressed]);
+        var ds = new DecompressionStream('deflate');
+        var decompressedStream = blob.stream().pipeThrough(ds);
+        var decompressedResponse = new Response(decompressedStream);
+        var decompressedBuf = await decompressedResponse.arrayBuffer();
+        return new Uint8Array(decompressedBuf);
+    }
+
+    // --- Open SQLite + query ---
+    async function queryCatalog(dbBytes) {
+        setIndeterminate('Initializing SQLite...');
+        var SQL = await initSqlJs({
+            locateFile: function(file) {
+                return 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/' + file;
+            }
+        });
+
+        setIndeterminate('Querying catalog...');
+        var db = new SQL.Database(dbBytes);
+
+        // Get root prefix from properties table
+        var rootPrefix = '/';
+        try {
+            var propResult = db.exec("SELECT value FROM properties WHERE key = 'root_prefix'");
+            if (propResult.length > 0 && propResult[0].values.length > 0) {
+                rootPrefix = propResult[0].values[0][0];
+            }
+        } catch (e) {
+            // properties table may not exist
+        }
+
+        // 1. Get all directory entries
+        var dirResult = db.exec(
+            "SELECT md5path_1, md5path_2, parent_1, parent_2, name " +
+            "FROM catalog WHERE (flags & 1) > 0"
+        );
+
+        // 2. Count entries per parent directory, grouped by type
+        var countResult = db.exec(
+            "SELECT parent_1, parent_2, " +
+            "SUM(CASE WHEN (flags & 1) > 0 THEN 1 ELSE 0 END) as dirs, " +
+            "SUM(CASE WHEN (flags & 4) > 0 THEN 1 ELSE 0 END) as files, " +
+            "SUM(CASE WHEN (flags & 8) > 0 THEN 1 ELSE 0 END) as symlinks, " +
+            "SUM(size) as total_size " +
+            "FROM catalog GROUP BY parent_1, parent_2"
+        );
+
+        db.close();
+        return { dirResult: dirResult, countResult: countResult, rootPrefix: rootPrefix };
+    }
+
+    // --- Build directory tree ---
+    function buildTree(dirResult, countResult, rootPrefix) {
+        // Map: "md5path_1,md5path_2" -> { name, md5key, parentKey, children: [] }
+        var dirMap = {};
+        // Map: "parent_1,parent_2" -> { files, dirs, symlinks, totalSize }
+        var countMap = {};
+
+        if (dirResult.length > 0) {
+            var dirRows = dirResult[0].values;
+            for (var i = 0; i < dirRows.length; i++) {
+                var row = dirRows[i];
+                var md5key = row[0] + ',' + row[1];
+                var parentKey = row[2] + ',' + row[3];
+                dirMap[md5key] = {
+                    name: row[4],
+                    md5key: md5key,
+                    parentKey: parentKey,
+                    children: []
+                };
+            }
+        }
+
+        if (countResult.length > 0) {
+            var countRows = countResult[0].values;
+            for (var i = 0; i < countRows.length; i++) {
+                var row = countRows[i];
+                var key = row[0] + ',' + row[1];
+                countMap[key] = {
+                    dirs: row[2] || 0,
+                    files: row[3] || 0,
+                    symlinks: row[4] || 0,
+                    totalSize: row[5] || 0
+                };
+            }
+        }
+
+        // Link children to parents
+        var rootNode = null;
+        var allKeys = Object.keys(dirMap);
+        for (var i = 0; i < allKeys.length; i++) {
+            var key = allKeys[i];
+            var entry = dirMap[key];
+            var parent = dirMap[entry.parentKey];
+            if (parent) {
+                parent.children.push(entry);
+            } else {
+                // This is the root: its parent is in a different catalog
+                rootNode = entry;
+            }
+        }
+
+        if (!rootNode) {
+            // Fallback: if only one directory, it's the root
+            if (allKeys.length === 1) {
+                rootNode = dirMap[allKeys[0]];
+            } else {
+                throw new Error('Could not identify root directory in catalog');
+            }
+        }
+
+        // Build D3-compatible tree recursively
+        function buildNode(entry, path) {
+            var counts = countMap[entry.md5key] || { files: 0, dirs: 0, symlinks: 0, totalSize: 0 };
+            var node = {
+                name: entry.name || path,
+                path: path,
+                files: counts.files,
+                dirs: counts.dirs,
+                symlinks: counts.symlinks,
+                totalSize: counts.totalSize,
+                children: []
+            };
+
+            // Sort children alphabetically
+            entry.children.sort(function(a, b) {
+                return a.name.localeCompare(b.name);
+            });
+
+            for (var i = 0; i < entry.children.length; i++) {
+                var child = entry.children[i];
+                var childPath = path === '/' ? '/' + child.name : path + '/' + child.name;
+                node.children.push(buildNode(child, childPath));
+            }
+
+            return node;
+        }
+
+        var displayRoot = rootPrefix || '/';
+        if (displayRoot === '' || displayRoot === '/') displayRoot = '/';
+        return buildNode(rootNode, displayRoot);
+    }
+
+    // --- Compute recursive totals ---
+    function computeRecursiveTotals(node) {
+        node.recursiveFiles = node.files;
+        node.recursiveDirs = node.dirs;
+        node.recursiveSymlinks = node.symlinks;
+        node.recursiveSize = node.totalSize;
+
+        for (var i = 0; i < node.children.length; i++) {
+            computeRecursiveTotals(node.children[i]);
+            node.recursiveFiles += node.children[i].recursiveFiles;
+            node.recursiveDirs += node.children[i].recursiveDirs;
+            node.recursiveSymlinks += node.children[i].recursiveSymlinks;
+            node.recursiveSize += node.children[i].recursiveSize;
+        }
+
+        node.recursiveTotal = node.recursiveFiles + node.recursiveDirs + node.recursiveSymlinks;
+        node.directTotal = node.files + node.dirs + node.symlinks;
+    }
+
+    // --- Render sunburst ---
+    function renderSunburst(treeData, catalogHash) {
+        document.getElementById('input-form').style.display = 'none';
+        document.getElementById('viz-container').classList.add('visible');
+        document.getElementById('catalog-hash-display').textContent = catalogHash;
+
+        var chartContainer = document.querySelector('.chart-container');
+        var size = Math.min(chartContainer.clientWidth - 32, chartContainer.clientHeight - 32, 800);
+        var width = size;
+        var height = size;
+        var radius = width / 12;
+
+        // Build D3 hierarchy — sized by entry count
+        var root = d3.hierarchy(treeData)
+            .sum(function(d) {
+                // Leaf weight: direct entries (files + dirs + symlinks)
+                return d.files + d.dirs + d.symlinks;
+            })
+            .sort(function(a, b) { return b.value - a.value; });
+
+        var partition = d3.partition()
+            .size([2 * Math.PI, root.height + 1]);
+
+        partition(root);
+
+        root.each(function(d) {
+            d.current = { x0: d.x0, x1: d.x1, y0: d.y0, y1: d.y1 };
+        });
+
+        // Canvas setup with HiDPI support
+        var canvas = document.getElementById('chart');
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        var ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        var descendants = root.descendants().slice(1);
+
+        var currentNode = root;
+        var hoveredNode = null;
+
+        function getColor(d) {
+            return entryCountColor(d.data.recursiveTotal);
+        }
+
+        function arcVisible(d) {
+            return d.y1 <= 6 && d.y0 >= 1 && d.x1 > d.x0;
+        }
+
+        function drawArc(cx, cy, x0, x1, innerR, outerR, color, opacity) {
+            if (x1 - x0 < 0.001) return;
+            var startAngle = x0 - Math.PI / 2;
+            var endAngle = x1 - Math.PI / 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR, startAngle, endAngle);
+            ctx.arc(cx, cy, innerR, endAngle, startAngle, true);
+            ctx.closePath();
+            ctx.globalAlpha = opacity;
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function draw() {
+            var cx = width / 2;
+            var cy = height / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            for (var i = 0; i < descendants.length; i++) {
+                var d = descendants[i];
+                if (!arcVisible(d.current)) continue;
+                var innerR = d.current.y0 * radius;
+                var outerR = Math.max(d.current.y0 * radius, d.current.y1 * radius - 1);
+                var color = getColor(d);
+                var opacity = d === hoveredNode ? 1 : 0.85;
+                drawArc(cx, cy, d.current.x0, d.current.x1, innerR, outerR, color, opacity);
+            }
+
+            // Center circle
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+            ctx.closePath();
+            ctx.globalAlpha = hoveredNode === currentNode ? 1 : 0.9;
+            ctx.fillStyle = getColor(currentNode);
+            ctx.fill();
+
+            // Center text
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#eee';
+            ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Click for top level', cx, cy);
+        }
+
+        function hitTest(clientX, clientY) {
+            var rect = canvas.getBoundingClientRect();
+            var mx = (clientX - rect.left) * (width / rect.width) - width / 2;
+            var my = (clientY - rect.top) * (height / rect.height) - height / 2;
+            var r = Math.sqrt(mx * mx + my * my);
+
+            if (r < radius) return currentNode;
+
+            var angle = Math.atan2(my, mx) + Math.PI / 2;
+            if (angle < 0) angle += 2 * Math.PI;
+
+            for (var i = 0; i < descendants.length; i++) {
+                var d = descendants[i];
+                if (!arcVisible(d.current)) continue;
+                var innerR = d.current.y0 * radius;
+                var outerR = Math.max(d.current.y0 * radius, d.current.y1 * radius - 1);
+                if (r >= innerR && r <= outerR && angle >= d.current.x0 && angle < d.current.x1) {
+                    return d;
+                }
+            }
+            return null;
+        }
+
+        function updateInfo(d) {
+            document.getElementById('info-path').textContent = d.data.path || '/';
+            document.getElementById('info-files').textContent = formatNumber(d.data.recursiveFiles);
+            document.getElementById('info-dirs').textContent = formatNumber(d.data.recursiveDirs);
+            document.getElementById('info-symlinks').textContent = formatNumber(d.data.recursiveSymlinks);
+            document.getElementById('info-total').textContent = formatNumber(d.data.recursiveTotal);
+            document.getElementById('info-size').textContent = formatBytes(d.data.recursiveSize);
+        }
+
+        function updateLargestDirs(hierarchyNode) {
+            var dirs = hierarchyNode.descendants()
+                .filter(function(d) { return d.data.recursiveTotal > 0; })
+                .map(function(d) { return { path: d.data.path, count: d.data.recursiveTotal }; })
+                .sort(function(a, b) { return b.count - a.count; })
+                .slice(0, 10);
+
+            var html = dirs.map(function(c) {
+                return '<div class="dir-item" data-path="' + c.path + '" title="' + c.path + '">' +
+                    '<span class="dir-count" style="color: ' + entryCountColor(c.count) + '">' + formatNumber(c.count) + ':</span>' +
+                    '<span class="dir-path">' + c.path + '</span>' +
+                '</div>';
+            }).join('');
+            document.getElementById('largest-dirs').innerHTML = html;
+
+            document.querySelectorAll('.dir-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var targetPath = this.dataset.path;
+                    var targetNode = root.descendants().find(function(d) { return d.data.path === targetPath; });
+                    if (targetNode) clicked(targetNode);
+                });
+            });
+        }
+
+        function navigateTo(p) {
+            root.each(function(d) {
+                d.current = {
+                    x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                    x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                    y0: Math.max(0, d.y0 - p.depth),
+                    y1: Math.max(0, d.y1 - p.depth)
+                };
+            });
+
+            currentNode = p;
+            hoveredNode = null;
+            updateInfo(p);
+            updateLargestDirs(p);
+            draw();
+        }
+
+        function clicked(p) {
+            navigateTo(p);
+
+            var params = new URLSearchParams(location.search);
+            if (p === root) {
+                params.delete('path');
+            } else {
+                params.set('path', p.data.path);
+            }
+            history.pushState(null, '', '?' + params);
+        }
+
+        canvas.addEventListener('mousemove', function(event) {
+            var hit = hitTest(event.clientX, event.clientY);
+            if (hit !== hoveredNode) {
+                hoveredNode = hit;
+                canvas.style.cursor = hit ? 'pointer' : 'default';
+                updateInfo(hit || currentNode);
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseleave', function() {
+            if (hoveredNode) {
+                hoveredNode = null;
+                canvas.style.cursor = 'default';
+                updateInfo(currentNode);
+                draw();
+            }
+        });
+
+        canvas.addEventListener('click', function(event) {
+            var hit = hitTest(event.clientX, event.clientY);
+            if (!hit) return;
+            if (hit === currentNode) {
+                clicked(root);
+            } else {
+                clicked(hit);
+            }
+        });
+
+        // Draw legend gradient and position labels
+        (function() {
+            var legendCanvas = document.getElementById('legend-gradient');
+            var lctx = legendCanvas.getContext('2d');
+            var w = legendCanvas.width;
+            var minVal = 50;
+            var maxVal = 500000;
+            var logMin = Math.log(minVal);
+            var logMax = Math.log(maxVal);
+            for (var i = 0; i < w; i++) {
+                var val = Math.exp(logMin + (logMax - logMin) * i / (w - 1));
+                lctx.fillStyle = entryCountColor(val);
+                lctx.fillRect(i, 0, 1, legendCanvas.height);
+            }
+
+            var labels = [50, 1000, 10000, 100000, 500000];
+            var labelText = ['50', '1k', '10k', '100k', '500k'];
+            var container = document.getElementById('legend-labels');
+            for (var i = 0; i < labels.length; i++) {
+                var pct = (Math.log(labels[i]) - logMin) / (logMax - logMin) * 100;
+                var span = document.createElement('span');
+                span.textContent = labelText[i];
+                span.style.left = Math.min(pct, 100) + '%';
+                container.appendChild(span);
+            }
+        })();
+
+        // Stats
+        document.getElementById('stats-info').textContent =
+            'Catalog entries: ' + formatNumber(root.data.recursiveTotal) +
+            ' | Directories: ' + formatNumber(root.descendants().length);
+
+        // Initial render
+        updateInfo(root);
+        updateLargestDirs(root);
+        draw();
+
+        // Handle back/forward navigation
+        window.addEventListener('popstate', function() {
+            var params = new URLSearchParams(location.search);
+            var path = params.get('path');
+            if (path) {
+                var targetNode = root.descendants().find(function(d) { return d.data.path === path; });
+                if (targetNode) {
+                    navigateTo(targetNode);
+                    return;
+                }
+            }
+            navigateTo(root);
+        });
+
+        // Restore path from URL if present
+        var initialPath = new URLSearchParams(location.search).get('path');
+        if (initialPath) {
+            var targetNode = root.descendants().find(function(d) { return d.data.path === initialPath; });
+            if (targetNode) navigateTo(targetNode);
+        }
+    }
+
+    // --- Main flow ---
+    async function loadCatalog(repoUrl, hash) {
+        try {
+            var dbBytes = await fetchCatalog(repoUrl, hash);
+            if (dbBytes === null) return;
+
+            var result = await queryCatalog(dbBytes);
+
+            setIndeterminate('Building directory tree...');
+            var tree = buildTree(result.dirResult, result.countResult, result.rootPrefix);
+            computeRecursiveTotals(tree);
+
+            hideLoading();
+            renderSunburst(tree, hash);
+        } catch (err) {
+            hideLoading();
+            var errorEl = document.getElementById('form-error');
+            errorEl.textContent = 'Error: ' + err.message;
+            errorEl.style.display = 'block';
+            document.getElementById('input-form').style.display = '';
+            throw err;
+        }
+    }
+
+    // Parse URL params
+    var params = new URLSearchParams(location.search);
+    var repoParam = params.get('repo');
+    var hashParam = params.get('hash');
+
+    if (repoParam && hashParam) {
+        document.getElementById('input-form').style.display = 'none';
+        document.getElementById('repo-url').value = repoParam;
+        document.getElementById('catalog-hash').value = hashParam;
+        loadCatalog(repoParam, hashParam);
+    }
+
+    // Form submission
+    document.getElementById('load-btn').addEventListener('click', function() {
+        var repo = document.getElementById('repo-url').value.trim();
+        var hash = document.getElementById('catalog-hash').value.trim();
+        var errorEl = document.getElementById('form-error');
+
+        if (!repo || !hash) {
+            errorEl.textContent = 'Please provide both a repository URL and catalog hash.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        if (!/^[a-f0-9]{40}$/.test(hash)) {
+            errorEl.textContent = 'Catalog hash must be a 40-character hex string.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        errorEl.style.display = 'none';
+
+        // Update URL
+        var newParams = new URLSearchParams();
+        newParams.set('repo', repo);
+        newParams.set('hash', hash);
+        history.pushState(null, '', '?' + newParams);
+
+        loadCatalog(repo, hash);
+    });
+
+    // Allow Enter key in form inputs
+    document.getElementById('repo-url').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('load-btn').click();
+    });
+    document.getElementById('catalog-hash').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('load-btn').click();
+    });
+})();
+    </script>
+</body>
+</html>
