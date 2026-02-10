@@ -28,8 +28,11 @@ jobs:
           restore-keys: |
             site-
 
-      - name: Prepare site directory
-        run: mkdir -p site/data
+      - name: Save restored site
+        run: |
+          if [ -d site/data ]; then
+            cp -r site/data /tmp/site-data
+          fi
 
       - name: Download new artifacts
         uses: actions/download-artifact@v4
@@ -41,15 +44,22 @@ jobs:
           run-id: ${{ github.event.client_payload.run_id }}
         continue-on-error: true
 
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.8
+
+      - name: Prepare site directory
+        run: |
+          mkdir -p site/data
+          if [ -d /tmp/site-data ]; then
+            cp -f /tmp/site-data/* site/data/ 2>/dev/null || true
+          fi
+
       - name: Overlay new data files
         run: |
           if [ -d new-results ]; then
             cp -f new-results/*.json.zst site/data/ 2>/dev/null || true
           fi
-
-      - uses: actions/checkout@v4
-
-      - uses: prefix-dev/setup-pixi@v0.8.8
 
       - name: Generate viewer page
         run: pixi run python generate.py --viewer --output site/index.html -q
