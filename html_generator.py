@@ -981,6 +981,42 @@ _VIEWER_CSS = """\
     margin-left: auto;
 }
 
+#recent-repos {
+    display: none;
+    margin-bottom: 1.5rem;
+}
+#recent-repos.visible {
+    display: block;
+}
+#recent-repos h2 {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+.recent-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.recent-chip {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 999px;
+    color: #4da6ff;
+    font-size: 0.85rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.recent-chip:hover {
+    border-color: #4da6ff;
+    color: #e94560;
+    text-decoration: none;
+}
+
 #viz-container {
     display: none;
 }
@@ -1010,6 +1046,55 @@ _VIEWER_JS = """\
     const dataCache = {};
     let currentViz = null;
     let currentRepo = null;
+    const RECENT_KEY = 'cvmfs-recent-repos';
+    const RECENT_MAX = 5;
+
+    function getRecentRepos() {
+        try {
+            const raw = localStorage.getItem(RECENT_KEY);
+            if (!raw) return [];
+            const items = JSON.parse(raw);
+            if (!Array.isArray(items)) return [];
+            return items.sort((a, b) => b.viewedAt - a.viewedAt).slice(0, RECENT_MAX);
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function addRecentRepo(name) {
+        try {
+            let items = getRecentRepos();
+            items = items.filter(r => r.name !== name);
+            items.unshift({ name: name, viewedAt: Date.now() });
+            items = items.slice(0, RECENT_MAX);
+            localStorage.setItem(RECENT_KEY, JSON.stringify(items));
+        } catch (e) {
+            // localStorage unavailable
+        }
+    }
+
+    function renderRecentRepos() {
+        const container = document.getElementById('recent-repos');
+        const chips = document.getElementById('recent-chips');
+        if (!container || !chips) return;
+        const recent = getRecentRepos();
+        if (recent.length === 0) {
+            container.classList.remove('visible');
+            return;
+        }
+        chips.innerHTML = recent.map(r =>
+            '<a class="recent-chip" data-repo="' + r.name + '" href="?repo=' + encodeURIComponent(r.name) + '">' + r.name + '</a>'
+        ).join('');
+        chips.querySelectorAll('.recent-chip').forEach(a => {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                const repo = this.dataset.repo;
+                history.pushState({ repo: repo }, '', '?repo=' + encodeURIComponent(repo));
+                navigateToRepo(repo, null, 0);
+            });
+        });
+        container.classList.add('visible');
+    }
 
     function timeAgo(date) {
         const seconds = Math.floor((new Date() - date) / 1000);
@@ -1067,6 +1152,7 @@ _VIEWER_JS = """\
         document.title = 'CVMFS Catalog Visualizations';
         currentRepo = null;
         currentViz = null;
+        renderRecentRepos();
     }
 
     function showViz() {
@@ -1182,6 +1268,7 @@ _VIEWER_JS = """\
         try {
             const envelope = await loadRepo(repoName, expectedSize);
             hideLoading();
+            addRecentRepo(repoName);
             renderViz(envelope, restorePath);
         } catch (err) {
             hideLoading();
@@ -1191,6 +1278,7 @@ _VIEWER_JS = """\
     }
 
     async function loadRepoListing() {
+        renderRecentRepos();
         try {
             const resp = await fetch('repos.json');
             if (!resp.ok) return;
@@ -1257,6 +1345,7 @@ _VIEWER_JS = """\
 
                 const name = '(local) ' + data.repo_name;
                 dataCache[name] = data;
+                addRecentRepo(name);
                 history.pushState({ repo: name, local: true }, '', '?repo=' + encodeURIComponent(name));
                 showViz();
                 currentRepo = name;
@@ -1381,6 +1470,10 @@ def generate_viewer_html() -> str:
     parts.append('            <h1>CVMFS Catalog Visualizations</h1>\n')
     parts.append('            <p>Interactive sunburst charts showing catalog hierarchy and download costs for CERN CVMFS repositories. ')
     parts.append('<a href="https://github.com/chrisburr/cvmfs-catalog-visualizations" style="color: #4da6ff;">Source on GitHub</a></p>\n')
+    parts.append('            <div id="recent-repos">\n')
+    parts.append('                <h2>Recently Viewed</h2>\n')
+    parts.append('                <div class="recent-chips" id="recent-chips"></div>\n')
+    parts.append('            </div>\n')
     parts.append('            <div class="repo-listing-controls">\n')
     parts.append('                <input type="text" id="repo-search" placeholder="Filter repositories...">\n')
     parts.append('                <label class="upload-label">Upload file<input type="file" id="file-upload" accept=".json,.zst"></label>\n')
