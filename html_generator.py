@@ -979,6 +979,46 @@ _VIEWER_CSS = """\
     color: #888;
     font-size: 0.85rem;
     margin-left: auto;
+    flex-shrink: 0;
+}
+.catalog-badge {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    vertical-align: middle;
+    text-align: center;
+}
+.badge-25mb { background: #eab308; }
+.badge-50mb { background: #f97316; }
+.badge-100mb { background: #ef4444; }
+.catalog-count {
+    color: #666;
+    font-size: 0.75rem;
+}
+.badge-legend {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+}
+.badge-legend .catalog-badge {
+    font-size: 0.65rem;
+    padding: 0.05rem 0.3rem;
+}
+.repo-listing-controls select {
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    color: #eee;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
 }
 
 #recent-repos {
@@ -1289,21 +1329,61 @@ _VIEWER_JS = """\
         }
     }
 
+    function catalogBadges(r) {
+        var html = '';
+        if (r.catalogs_25mb) html += '<span class="catalog-badge badge-25mb" title="' + r.catalogs_25mb + ' catalogs 25\u201350 MB">' + r.catalogs_25mb + '</span> ';
+        if (r.catalogs_50mb) html += '<span class="catalog-badge badge-50mb" title="' + r.catalogs_50mb + ' catalogs 50\u2013100 MB">' + r.catalogs_50mb + '</span> ';
+        if (r.catalogs_100mb) html += '<span class="catalog-badge badge-100mb" title="' + r.catalogs_100mb + ' catalogs \u2265 100 MB">' + r.catalogs_100mb + '</span> ';
+        return html;
+    }
+
+    function sortRepos(repos, sortBy) {
+        var sorted = repos.slice();
+        switch (sortBy) {
+            case 'large':
+                sorted.sort(function(a, b) {
+                    var sa = (a.catalogs_100mb || 0) * 100 + (a.catalogs_50mb || 0) * 10 + (a.catalogs_25mb || 0);
+                    var sb = (b.catalogs_100mb || 0) * 100 + (b.catalogs_50mb || 0) * 10 + (b.catalogs_25mb || 0);
+                    return sb - sa;
+                });
+                break;
+            case 'newest':
+                sorted.sort(function(a, b) {
+                    return (b.generated_at || '').localeCompare(a.generated_at || '');
+                });
+                break;
+            case 'largest':
+                sorted.sort(function(a, b) {
+                    return (b.size_bytes || 0) - (a.size_bytes || 0);
+                });
+                break;
+            default:
+                sorted.sort(function(a, b) {
+                    return a.name.localeCompare(b.name);
+                });
+        }
+        return sorted;
+    }
+
     function renderRepoList(repos) {
         const list = document.getElementById('repo-list');
         const searchInput = document.getElementById('repo-search');
+        const sortSelect = document.getElementById('repo-sort');
         let allItems = repos;
 
         function render(filter) {
             const filtered = filter
                 ? allItems.filter(r => r.name.toLowerCase().includes(filter.toLowerCase()))
                 : allItems;
-            list.innerHTML = filtered.map(r => {
+            const sorted = sortRepos(filtered, sortSelect.value);
+            list.innerHTML = sorted.map(r => {
                 const badge = r.incomplete ? ' <span class="incomplete">(incomplete)</span>' : '';
+                const countLabel = r.total_catalogs ? '<span class="catalog-count">' + r.total_catalogs + ' catalogs</span> ' : '';
+                const badges = catalogBadges(r);
                 const ts = r.generated_at
                     ? '<time datetime="' + r.generated_at + '" title="' + r.generated_at + '">' + timeAgo(new Date(r.generated_at)) + '</time>'
                     : '';
-                return '<li><a href="?repo=' + encodeURIComponent(r.name) + '" data-repo="' + r.name + '" data-size="' + (r.size_bytes || 0) + '">' + r.name + '</a>' + badge + ts + '</li>';
+                return '<li><a href="?repo=' + encodeURIComponent(r.name) + '" data-repo="' + r.name + '" data-size="' + (r.size_bytes || 0) + '">' + r.name + '</a>' + badge + ' ' + countLabel + badges + ts + '</li>';
             }).join('');
 
             // Attach click handlers
@@ -1321,6 +1401,9 @@ _VIEWER_JS = """\
         render('');
         searchInput.addEventListener('input', function() {
             render(this.value);
+        });
+        sortSelect.addEventListener('change', function() {
+            render(searchInput.value);
         });
     }
 
@@ -1476,7 +1559,19 @@ def generate_viewer_html() -> str:
     parts.append('            </div>\n')
     parts.append('            <div class="repo-listing-controls">\n')
     parts.append('                <input type="text" id="repo-search" placeholder="Filter repositories...">\n')
+    parts.append('                <select id="repo-sort">\n')
+    parts.append('                    <option value="name">Sort: Name</option>\n')
+    parts.append('                    <option value="large">Sort: Most large catalogs</option>\n')
+    parts.append('                    <option value="newest">Sort: Newest</option>\n')
+    parts.append('                    <option value="largest">Sort: Largest data</option>\n')
+    parts.append('                </select>\n')
     parts.append('                <label class="upload-label">Upload file<input type="file" id="file-upload" accept=".json,.zst"></label>\n')
+    parts.append('            </div>\n')
+    parts.append('            <div class="badge-legend">\n')
+    parts.append('                Catalog sizes:\n')
+    parts.append('                <span class="catalog-badge badge-25mb">N</span> 25\u201350 MB\n')
+    parts.append('                <span class="catalog-badge badge-50mb">N</span> 50\u2013100 MB\n')
+    parts.append('                <span class="catalog-badge badge-100mb">N</span> \u2265 100 MB\n')
     parts.append('            </div>\n')
     parts.append('            <ul class="repo-list" id="repo-list"></ul>\n')
     parts.append('        </div>\n')

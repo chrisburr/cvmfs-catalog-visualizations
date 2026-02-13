@@ -16,6 +16,43 @@ import sys
 
 import zstandard as zstd
 
+MB = 1024 * 1024
+
+
+def compute_catalog_stats(tree):
+    """Walk tree and count catalogs in size buckets."""
+    catalogs_25mb = 0
+    catalogs_50mb = 0
+    catalogs_100mb = 0
+    total_catalogs = 0
+    max_catalog_bytes = 0
+
+    stack = [tree]
+    while stack:
+        node = stack.pop()
+        size = node.get("size", 0)
+        is_virtual = node.get("is_virtual", False)
+        if not is_virtual and size > 0:
+            total_catalogs += 1
+            if size > max_catalog_bytes:
+                max_catalog_bytes = size
+            if size >= 100 * MB:
+                catalogs_100mb += 1
+            elif size >= 50 * MB:
+                catalogs_50mb += 1
+            elif size >= 25 * MB:
+                catalogs_25mb += 1
+        for child in node.get("children", []):
+            stack.append(child)
+
+    return {
+        "catalogs_25mb": catalogs_25mb,
+        "catalogs_50mb": catalogs_50mb,
+        "catalogs_100mb": catalogs_100mb,
+        "total_catalogs": total_catalogs,
+        "max_catalog_mb": round(max_catalog_bytes / MB, 1),
+    }
+
 
 def main():
     if len(sys.argv) < 2:
@@ -50,9 +87,11 @@ def main():
                 "utf-8", errors="ignore"
             ):
                 incomplete = True
+            catalog_stats = compute_catalog_stats(envelope.get("tree", {}))
         except Exception:
             generated_at = ""
             incomplete = False
+            catalog_stats = {}
         repos.append(
             {
                 "name": repo_name,
@@ -60,6 +99,7 @@ def main():
                 "incomplete": incomplete,
                 "data_file": "data/" + f,
                 "size_bytes": size_bytes,
+                **catalog_stats,
             }
         )
 
