@@ -1028,33 +1028,27 @@ _VIEWER_CSS = """\
 #recent-repos.visible {
     display: block;
 }
-#recent-repos h2 {
+.repo-section-heading {
     font-size: 0.85rem;
     color: #888;
     margin-bottom: 0.5rem;
     font-weight: 500;
 }
-.recent-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-.recent-chip {
-    display: inline-block;
-    padding: 0.35rem 0.75rem;
-    background: #16213e;
-    border: 1px solid #0f3460;
-    border-radius: 999px;
-    color: #4da6ff;
-    font-size: 0.85rem;
-    text-decoration: none;
+.recent-remove {
+    background: none;
+    border: none;
+    color: #666;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+    line-height: 1;
+    border-radius: 3px;
+    margin-left: 0.3rem;
+    flex-shrink: 0;
 }
-.recent-chip:hover {
-    border-color: #4da6ff;
-    color: #e94560;
-    text-decoration: none;
+.recent-remove:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
 }
 
 #viz-container {
@@ -1086,6 +1080,7 @@ _VIEWER_JS = """\
     const dataCache = {};
     let currentViz = null;
     let currentRepo = null;
+    let allRepos = [];
     const RECENT_KEY = 'cvmfs-recent-repos';
     const RECENT_MAX = 5;
 
@@ -1113,24 +1108,51 @@ _VIEWER_JS = """\
         }
     }
 
+    function removeRecentRepo(name) {
+        try {
+            let items = getRecentRepos();
+            items = items.filter(r => r.name !== name);
+            localStorage.setItem(RECENT_KEY, JSON.stringify(items));
+        } catch (e) {
+            // localStorage unavailable
+        }
+        renderRecentRepos();
+    }
+
     function renderRecentRepos() {
         const container = document.getElementById('recent-repos');
-        const chips = document.getElementById('recent-chips');
-        if (!container || !chips) return;
+        const list = document.getElementById('recent-list');
+        if (!container || !list) return;
         const recent = getRecentRepos();
         if (recent.length === 0) {
             container.classList.remove('visible');
             return;
         }
-        chips.innerHTML = recent.map(r =>
-            '<a class="recent-chip" data-repo="' + r.name + '" href="?repo=' + encodeURIComponent(r.name) + '">' + r.name + '</a>'
-        ).join('');
-        chips.querySelectorAll('.recent-chip').forEach(a => {
+        const repoMap = {};
+        allRepos.forEach(function(r) { repoMap[r.name] = r; });
+        list.innerHTML = recent.map(function(rec) {
+            var r = repoMap[rec.name] || { name: rec.name };
+            var badge = r.incomplete ? ' <span class="incomplete">(incomplete)</span>' : '';
+            var countLabel = r.total_catalogs ? '<span class="catalog-count">' + r.total_catalogs + ' catalogs</span> ' : '';
+            var badges = catalogBadges(r);
+            var ts = r.generated_at
+                ? '<time datetime="' + r.generated_at + '" title="' + r.generated_at + '">' + timeAgo(new Date(r.generated_at)) + '</time>'
+                : '';
+            return '<li><a href="?repo=' + encodeURIComponent(r.name) + '" data-repo="' + r.name + '" data-size="' + (r.size_bytes || 0) + '">' + r.name + '</a>' + badge + ' ' + countLabel + badges + ts + '<button class="recent-remove" data-repo="' + r.name + '" title="Remove from recently viewed">\u00d7</button></li>';
+        }).join('');
+        list.querySelectorAll('a[data-repo]').forEach(function(a) {
             a.addEventListener('click', function(e) {
                 e.preventDefault();
-                const repo = this.dataset.repo;
+                var repo = this.dataset.repo;
+                var size = parseInt(this.dataset.size, 10) || 0;
                 history.pushState({ repo: repo }, '', '?repo=' + encodeURIComponent(repo));
-                navigateToRepo(repo, null, 0);
+                navigateToRepo(repo, null, size);
+            });
+        });
+        list.querySelectorAll('.recent-remove').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                removeRecentRepo(this.dataset.repo);
             });
         });
         container.classList.add('visible');
@@ -1323,7 +1345,9 @@ _VIEWER_JS = """\
             const resp = await fetch('repos.json');
             if (!resp.ok) return;
             const repos = await resp.json();
+            allRepos = repos;
             renderRepoList(repos);
+            renderRecentRepos();
         } catch (e) {
             // repos.json not available — show empty listing
         }
@@ -1554,9 +1578,10 @@ def generate_viewer_html() -> str:
     parts.append('            <p>Interactive sunburst charts showing catalog hierarchy and download costs for CERN CVMFS repositories. ')
     parts.append('<a href="https://github.com/chrisburr/cvmfs-catalog-visualizations" style="color: #4da6ff;">Source on GitHub</a></p>\n')
     parts.append('            <div id="recent-repos">\n')
-    parts.append('                <h2>Recently Viewed</h2>\n')
-    parts.append('                <div class="recent-chips" id="recent-chips"></div>\n')
+    parts.append('                <h2 class="repo-section-heading">Recently Viewed</h2>\n')
+    parts.append('                <ul class="repo-list" id="recent-list"></ul>\n')
     parts.append('            </div>\n')
+    parts.append('            <h2 class="repo-section-heading">All Repositories</h2>\n')
     parts.append('            <div class="repo-listing-controls">\n')
     parts.append('                <input type="text" id="repo-search" placeholder="Filter repositories...">\n')
     parts.append('                <select id="repo-sort">\n')
