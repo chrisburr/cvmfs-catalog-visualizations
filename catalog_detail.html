@@ -481,16 +481,21 @@ header .catalog-hash {
         document.getElementById('loading-overlay').classList.add('hidden');
     }
 
+    var _downloadStartTime = 0;
+
     function updateProgress(loaded, total) {
         var bar = document.getElementById('progress-bar');
         var sizeEl = document.getElementById('progress-size');
+        var elapsed = (performance.now() - _downloadStartTime) / 1000;
+        var speed = elapsed > 0.1 ? loaded / elapsed : 0;
+        var speedText = speed > 0 ? ' — ' + formatBytes(speed) + '/s' : '';
         if (total > 0) {
             bar.classList.remove('indeterminate');
             bar.style.width = Math.round((loaded / total) * 100) + '%';
-            sizeEl.textContent = formatBytes(loaded) + ' / ' + formatBytes(total);
+            sizeEl.textContent = formatBytes(loaded) + ' / ' + formatBytes(total) + speedText;
         } else {
             bar.classList.add('indeterminate');
-            sizeEl.textContent = formatBytes(loaded);
+            sizeEl.textContent = formatBytes(loaded) + speedText;
         }
     }
 
@@ -540,6 +545,7 @@ header .catalog-hash {
         var reader = response.body.getReader();
         var chunks = [];
         var loaded = 0;
+        _downloadStartTime = performance.now();
 
         while (true) {
             var result = await reader.read();
