@@ -655,7 +655,7 @@ function initVisualization(config) {
 # ---------------------------------------------------------------------------
 _VIZ_BODY_TEMPLATE = """\
     <header>
-        <h1><a href="https://chrisburr.github.io/cvmfs-catalog-visualizations/" style="color: inherit; text-decoration: none;">CVMFS Catalog Visualizer</a> - <span class="repo-name" id="repo-name">{repo_name}</span></h1>
+        <h1><a href="https://cvmfs-contrib.github.io/cvmfs-catalog-visualizations/" style="color: inherit; text-decoration: none;">CVMFS Catalog Visualizer</a> - <span class="repo-name" id="repo-name">{repo_name}</span></h1>
     </header>
 
     <div class="incomplete-banner" id="incomplete-banner"></div>
@@ -1576,7 +1576,7 @@ def generate_viewer_html() -> str:
     parts.append('        <div class="repo-listing">\n')
     parts.append('            <h1>CVMFS Catalog Visualizations</h1>\n')
     parts.append('            <p>Interactive sunburst charts showing catalog hierarchy and download costs for CERN CVMFS repositories. ')
-    parts.append('<a href="https://github.com/chrisburr/cvmfs-catalog-visualizations" style="color: #4da6ff;">Source on GitHub</a></p>\n')
+    parts.append('<a href="https://github.com/cvmfs-contrib/cvmfs-catalog-visualizations" style="color: #4da6ff;">Source on GitHub</a></p>\n')
     parts.append('            <div id="recent-repos">\n')
     parts.append('                <h2 class="repo-section-heading">Recently Viewed</h2>\n')
     parts.append('                <ul class="repo-list" id="recent-list"></ul>\n')
