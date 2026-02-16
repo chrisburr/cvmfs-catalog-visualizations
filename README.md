@@ -1,11 +1,11 @@
 # CVMFS Catalog Visualizations
 
-[![Generate CVMFS Catalog Visualizations](https://github.com/chrisburr/cvmfs-catalog-visualizations/actions/workflows/pages.yml/badge.svg)](https://github.com/chrisburr/cvmfs-catalog-visualizations/actions/workflows/pages.yml)
-[![Deploy to GitHub Pages](https://github.com/chrisburr/cvmfs-catalog-visualizations/actions/workflows/deploy.yml/badge.svg)](https://github.com/chrisburr/cvmfs-catalog-visualizations/actions/workflows/deploy.yml)
+[![Generate CVMFS Catalog Visualizations](https://github.com/cvmfs-contrib/cvmfs-catalog-visualizations/actions/workflows/pages.yml/badge.svg)](https://github.com/cvmfs-contrib/cvmfs-catalog-visualizations/actions/workflows/pages.yml)
+[![Deploy to GitHub Pages](https://github.com/cvmfs-contrib/cvmfs-catalog-visualizations/actions/workflows/deploy.yml/badge.svg)](https://github.com/cvmfs-contrib/cvmfs-catalog-visualizations/actions/workflows/deploy.yml)
 
 Interactive sunburst charts showing the catalog hierarchy and download costs for CERN CVMFS repositories.
 
-**Live site:** https://chrisburr.github.io/cvmfs-catalog-visualizations/
+**Live site:** https://cvmfs-contrib.github.io/cvmfs-catalog-visualizations/
 
 ## How it works
 
