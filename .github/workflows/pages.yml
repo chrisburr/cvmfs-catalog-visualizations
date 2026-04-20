@@ -68,6 +68,7 @@ jobs:
             max_catalogs: 100000
           - stratum1: http://cvmfs-s1.computecanada.net
             repo: soft.computecanada.ca
+            max_catalogs: 10000
     steps:
       - name: Free disk space
         run: |
