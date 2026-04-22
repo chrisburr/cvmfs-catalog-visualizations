@@ -36,6 +36,7 @@ jobs:
           - cms-griddata.cern.ch
           - cms-ib.cern.ch
           - compass.cern.ch
+          - conda-cache.cern.ch
           - cvmfs-config.cern.ch
           - delphi.cern.ch
           - dphep.cern.ch
