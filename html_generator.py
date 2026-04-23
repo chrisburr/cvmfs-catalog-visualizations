@@ -492,8 +492,12 @@ function initVisualization(config) {
 
         const detailLink = document.getElementById("detail-link");
         if (detailLink && d.data.hash && !d.data.is_virtual && config.repoUrl) {
-            detailLink.href = "catalog_detail.html?repo=" + encodeURIComponent(config.repoUrl) +
+            var href = "catalog_detail.html?repo=" + encodeURIComponent(config.repoUrl) +
                 "&hash=" + encodeURIComponent(d.data.hash);
+            if (d.data.algorithm && d.data.algorithm !== "sha1") {
+                href += "&algorithm=" + encodeURIComponent(d.data.algorithm);
+            }
+            detailLink.href = href;
             detailLink.style.display = "block";
         } else if (detailLink) {
             detailLink.style.display = "none";

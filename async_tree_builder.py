@@ -54,6 +54,18 @@ class AsyncCatalogTreeBuilder:
         self.ignore_paths = ignore_paths or []
         self.progress_callback = progress_callback
         self.max_workers = max_workers
+
+        # Discard pre-algorithm cached trees for non-sha1 repos — their nodes
+        # would carry the wrong algorithm (from_dict defaults to "sha1") and
+        # produce broken CAS URLs when grafted.
+        repo_algorithm = getattr(repository.manifest, "hash_algorithm", "sha1")
+        if (
+            previous_tree is not None
+            and repo_algorithm != "sha1"
+            and previous_tree.algorithm != repo_algorithm
+        ):
+            previous_tree = None
+
         self._previous_tree = previous_tree
         self._previous_lookup = build_lookup(previous_tree) if previous_tree else {}
 
@@ -113,6 +125,7 @@ class AsyncCatalogTreeBuilder:
             depth=0,
             is_root=True,
             is_large=is_large,
+            algorithm=getattr(self.repository.manifest, "hash_algorithm", "sha1"),
         )
 
         # Only descend if root is not too large and depth allows
@@ -212,6 +225,7 @@ class AsyncCatalogTreeBuilder:
         catalog_hash: str,
         catalog_size: int,
         is_large: bool,
+        algorithm: str = "sha1",
     ) -> CatalogNode:
         """Insert a catalog node at the correct path location."""
         segments = self._get_path_segments(parent_path, catalog_path)
@@ -230,6 +244,7 @@ class AsyncCatalogTreeBuilder:
                     cumulative_cost=child_cost,
                     depth=seg_depth,
                     is_large=is_large,
+                    algorithm=algorithm,
                 )
                 current.children.append(child_node)
                 return child_node
@@ -401,6 +416,7 @@ class AsyncCatalogTreeBuilder:
                 ref.hash,
                 child_size,
                 is_large,
+                ref.algorithm,
             )
 
         # Check max depth

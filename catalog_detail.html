@@ -370,6 +370,11 @@ header .catalog-hash {
         <input type="text" id="repo-url" placeholder="https://s1cern-cvmfs.openhtc.io/cvmfs/lhcb.cern.ch">
         <label for="catalog-hash">Catalog hash</label>
         <input type="text" id="catalog-hash" placeholder="2715c65209f4f276699af1a60a5e5f401e2e25d5">
+        <label for="catalog-algorithm">Hash algorithm</label>
+        <select id="catalog-algorithm">
+            <option value="sha1" selected>sha1</option>
+            <option value="shake128">shake128</option>
+        </select>
         <button id="load-btn">Load Catalog</button>
         <div class="error" id="form-error"></div>
     </div>
@@ -506,8 +511,9 @@ header .catalog-hash {
     }
 
     // --- Fetch + decompress catalog ---
-    async function fetchCatalog(repoUrl, hash) {
-        var dataPath = hash.slice(0, 2) + '/' + hash.slice(2) + 'C';
+    async function fetchCatalog(repoUrl, hash, algorithm) {
+        var infix = (algorithm && algorithm !== 'sha1') ? '-' + algorithm : '';
+        var dataPath = hash.slice(0, 2) + '/' + hash.slice(2) + infix + 'C';
         var url = repoUrl.replace(/\/+$/, '') + '/data/' + dataPath;
 
         showLoading('Fetching catalog...');
@@ -1022,9 +1028,9 @@ header .catalog-hash {
     }
 
     // --- Main flow ---
-    async function loadCatalog(repoUrl, hash) {
+    async function loadCatalog(repoUrl, hash, algorithm) {
         try {
-            var dbBytes = await fetchCatalog(repoUrl, hash);
+            var dbBytes = await fetchCatalog(repoUrl, hash, algorithm);
             if (dbBytes === null) return;
 
             var result = await queryCatalog(dbBytes);
@@ -1049,18 +1055,21 @@ header .catalog-hash {
     var params = new URLSearchParams(location.search);
     var repoParam = params.get('repo');
     var hashParam = params.get('hash');
+    var algorithmParam = params.get('algorithm') || 'sha1';
 
     if (repoParam && hashParam) {
         document.getElementById('input-form').style.display = 'none';
         document.getElementById('repo-url').value = repoParam;
         document.getElementById('catalog-hash').value = hashParam;
-        loadCatalog(repoParam, hashParam);
+        document.getElementById('catalog-algorithm').value = algorithmParam;
+        loadCatalog(repoParam, hashParam, algorithmParam);
     }
 
     // Form submission
     document.getElementById('load-btn').addEventListener('click', function() {
         var repo = document.getElementById('repo-url').value.trim();
         var hash = document.getElementById('catalog-hash').value.trim();
+        var algorithm = document.getElementById('catalog-algorithm').value;
         var errorEl = document.getElementById('form-error');
 
         if (!repo || !hash) {
@@ -1081,9 +1090,12 @@ header .catalog-hash {
         var newParams = new URLSearchParams();
         newParams.set('repo', repo);
         newParams.set('hash', hash);
+        if (algorithm && algorithm !== 'sha1') {
+            newParams.set('algorithm', algorithm);
+        }
         history.pushState(null, '', '?' + newParams);
 
-        loadCatalog(repo, hash);
+        loadCatalog(repo, hash, algorithm);
     });
 
     // Allow Enter key in form inputs

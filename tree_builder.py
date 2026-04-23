@@ -23,6 +23,7 @@ class CatalogNode:
     is_large: bool = False
     is_root: bool = False
     is_virtual: bool = False  # True for intermediate path nodes without a catalog
+    algorithm: str = "sha1"
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization.
@@ -39,6 +40,8 @@ class CatalogNode:
             d["is_large"] = True
         if self.is_virtual:
             d["is_virtual"] = True
+        if self.algorithm != "sha1":
+            d["algorithm"] = self.algorithm
         if self.children:
             d["children"] = [child.to_dict() for child in self.children]
         return d
@@ -61,6 +64,7 @@ class CatalogNode:
             is_large=data.get("is_large", False),
             is_root=data.get("is_root", False),
             is_virtual=data.get("is_virtual", False),
+            algorithm=data.get("algorithm", "sha1"),
         )
 
     def find_or_create_child(self, path_segment: str, full_path: str, depth: int) -> "CatalogNode":
